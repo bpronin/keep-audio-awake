@@ -15,14 +15,14 @@ pub struct App {
     tray: nwg::TrayNotification,
     tray_menu: nwg::Menu,
     exit_menu_item: nwg::MenuItem,
-    service_handler: RefCell<Option<JoinHandle<Result<(), String>>>>,
+    service_thread: RefCell<Option<JoinHandle<Result<(), String>>>>,
     service_running: Arc<AtomicBool>,
 }
 
 impl App {
     fn on_app_init(&self) {
         let running = Arc::clone(&self.service_running);
-        *self.service_handler.borrow_mut() = Some(thread::spawn(move || {
+        *self.service_thread.borrow_mut() = Some(thread::spawn(move || {
             running.store(true, Ordering::SeqCst);
             KeepAwakeService::run(running)?;
             
@@ -31,20 +31,29 @@ impl App {
     }
 
     fn on_app_exit(&self) {
-        nwg::stop_thread_dispatch();
+        self.tray.set_visibility(false); /* hide it first because stopping service may take time */ 
+        
         self.service_running.store(false, Ordering::SeqCst);
-        self.service_handler
+        self.service_thread
             .take()
             .unwrap()
-            .join()
-            .unwrap()
-            .unwrap();
+            .join();
+        
+        nwg::stop_thread_dispatch();
     }
 
     fn on_show_menu(&self) {
         let (x, y) = nwg::GlobalCursor::position();
         self.tray_menu.popup(x, y);
     }
+}
+
+pub(crate) fn run_main() -> Result<(), String> {
+    nwg::init().expect("Failed to init Native Windows GUI");
+    let _ui = App::build_ui(App::default()).expect("Failed to build UI");
+    nwg::dispatch_thread_events();
+
+    Ok(())
 }
 
 mod app_ui {
@@ -150,12 +159,4 @@ mod app_ui {
             &self.inner
         }
     }
-}
-
-pub(crate) fn run_main() -> Result<(), String> {
-    nwg::init().expect("Failed to init Native Windows GUI");
-    let _ui = App::build_ui(App::default()).expect("Failed to build UI");
-    nwg::dispatch_thread_events();
-
-    Ok(())
 }
