@@ -37,7 +37,9 @@ impl App {
         self.service_thread
             .take()
             .unwrap()
-            .join();
+            .join()
+            .unwrap()
+            .unwrap();
         
         nwg::stop_thread_dispatch();
     }

@@ -1,6 +1,6 @@
 extern crate embed_resource;
 fn main() {
-    embed_resource::compile("keep-audio-awake-manifest.rc", embed_resource::NONE)
+    embed_resource::compile("resources.rc", embed_resource::NONE)
         .manifest_required()
         .unwrap();
 }
