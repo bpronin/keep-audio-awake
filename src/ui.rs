@@ -25,22 +25,17 @@ impl App {
         *self.service_thread.borrow_mut() = Some(thread::spawn(move || {
             running.store(true, Ordering::SeqCst);
             KeepAwakeService::run(running)?;
-            
+
             Ok(())
         }));
     }
 
     fn on_app_exit(&self) {
-        self.tray.set_visibility(false); /* hide it first because stopping service may take time */ 
-        
+        self.tray.set_visibility(false); /* hide it first because stopping service may take time */
+
         self.service_running.store(false, Ordering::SeqCst);
-        self.service_thread
-            .take()
-            .unwrap()
-            .join()
-            .unwrap()
-            .unwrap();
-        
+        self.service_thread.take().unwrap().join().unwrap().unwrap();
+
         nwg::stop_thread_dispatch();
     }
 
@@ -76,8 +71,11 @@ mod app_ui {
 
             /* Resources */
 
+            let embed = nwg::EmbedResource::load(None).unwrap();
+            
             nwg::Icon::builder()
-                .source_file(Some("./res/app.ico"))
+                .source_embed(Some(&embed))
+                .source_embed_str(Some("IDI_APP_ICON"))
                 .build(&mut app.icon)?;
 
             /* Controls */

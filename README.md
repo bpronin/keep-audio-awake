@@ -1,2 +1,2 @@
 # keep-audio-awake
-Windows application that prevents audio device from falling asleep
+A Windows application that prevents an audio device from going to sleep by periodically sending it silence.

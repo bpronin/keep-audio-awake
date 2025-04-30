@@ -1,0 +1,4 @@
+#define RT_MANIFEST 24
+1 RT_MANIFEST "keep-audio-awake.exe.manifest"
+
+IDI_APP_ICON ICON "res/app.ico"
