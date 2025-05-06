@@ -7,6 +7,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
 use thread::JoinHandle;
+use crate::util;
 
 #[derive(Default)]
 pub struct App {
@@ -47,6 +48,12 @@ impl App {
 
 pub(crate) fn run_main() -> Result<(), String> {
     nwg::init().expect("Failed to init Native Windows GUI");
+
+    util::check_app_running().map_err(|e| {
+        nwg::error_message("Error", "Application is already running.");
+        e
+    })?;
+    
     let _ui = App::build_ui(App::default()).expect("Failed to build UI");
     nwg::dispatch_thread_events();
 
