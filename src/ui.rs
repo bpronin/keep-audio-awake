@@ -71,10 +71,10 @@ mod app_ui {
 
             /* Resources */
 
-            let embed = nwg::EmbedResource::load(None).unwrap();
+            let resource = nwg::EmbedResource::load(None).unwrap();
             
             nwg::Icon::builder()
-                .source_embed(Some(&embed))
+                .source_embed(Some(&resource))
                 .source_embed_str(Some("IDI_APP_ICON"))
                 .build(&mut app.icon)?;
 

@@ -3,8 +3,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
-use windows_sys::core::PSTR;
-use windows_sys::Win32::Media::Audio::{
+use windows::core::PSTR;
+use windows::Win32::Media::Audio::{
     waveOutClose, waveOutOpen, waveOutPrepareHeader, waveOutUnprepareHeader, waveOutWrite, CALLBACK_NULL, HWAVEOUT,
     WAVEFORMATEX, WAVEHDR, WAVE_FORMAT_PCM, WAVE_MAPPER,
 };
@@ -12,7 +12,7 @@ use windows_sys::Win32::Media::Audio::{
 pub(crate) struct KeepAwakeService {
     device_handler: HWAVEOUT,
     wave_header: WAVEHDR,
-    _buffer: Vec<i16>, // Hold buffer to keep data alive while header uses it
+    _buffer: Vec<u8>, // Hold buffer to keep data alive while header uses it
 }
 
 impl KeepAwakeService {
@@ -31,14 +31,14 @@ impl KeepAwakeService {
             cbSize: 0,
         };
 
-        let mut device_handler = null_mut();
+        let h_waveout = None;
         let result = unsafe {
             waveOutOpen(
-                &mut device_handler,
+                h_waveout,
                 WAVE_MAPPER,
                 &audio_format,
-                0,
-                0,
+                Some(0),
+                Some(0),
                 CALLBACK_NULL,
             )
         };
@@ -50,8 +50,8 @@ impl KeepAwakeService {
 
         let mut _buffer = vec![0; SAMPLES_PER_SEC as usize / 10]; // 0.1 second buffer
         let mut wave_header = WAVEHDR {
-            lpData: _buffer.as_mut_ptr() as PSTR,
-            dwBufferLength: (_buffer.len() * 2) as u32, // i16 = 2 bytes
+            lpData: PSTR(_buffer.as_mut_ptr()),
+            dwBufferLength: (_buffer.len() * 2) as u32, 
             dwBytesRecorded: 0,
             dwUser: 0,
             dwFlags: 0,
@@ -59,22 +59,23 @@ impl KeepAwakeService {
             lpNext: null_mut(),
             reserved: 0,
         };
-
+        
         /* Prepare wave form for playback */
+        unsafe {
+            let device_handler = *h_waveout.unwrap();
+            let result =
+                waveOutPrepareHeader(device_handler, &mut wave_header, size_of::<WAVEHDR>() as u32);
+            if result != 0 {
+                waveOutClose(device_handler);
+                return Err(format!("Error preparing audio header ({})", result));
+            }
 
-        let result = unsafe {
-            waveOutPrepareHeader(device_handler, &mut wave_header, size_of::<WAVEHDR>() as u32)
-        };
-        if result != 0 {
-            unsafe { waveOutClose(device_handler) };
-            return Err(format!("Error preparing audio header ({})", result));
+            Ok(Self {
+                device_handler,
+                wave_header,
+                _buffer,
+            })
         }
-
-        Ok(Self {
-            device_handler,
-            wave_header,
-            _buffer,
-        })
     }
 
     pub(crate) fn run(running: Arc<AtomicBool>) -> Result<(), String> {
