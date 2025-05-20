@@ -1,12 +1,12 @@
 extern crate native_windows_gui as nwg;
 
-use crate::audio::KeepAwakeService;
 use nwg::NativeUi;
 use std::cell::RefCell;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
 use thread::JoinHandle;
+use crate::audio::keep_audio_awake;
 use crate::util;
 
 #[derive(Default)]
@@ -25,7 +25,7 @@ impl App {
         let running = Arc::clone(&self.service_running);
         *self.service_thread.borrow_mut() = Some(thread::spawn(move || {
             running.store(true, Ordering::SeqCst);
-            KeepAwakeService::run(running)?;
+            keep_audio_awake(running)?;
 
             Ok(())
         }));

@@ -1,3 +1,4 @@
+use crate::util::from_utf16;
 use std::ptr::null_mut;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -10,7 +11,6 @@ use windows::Win32::Media::Audio::{
     WHDR_DONE,
 };
 use windows::Win32::Media::MMSYSERR_NOERROR;
-use crate::util::from_utf16;
 
 #[cfg(not(feature = "debug"))]
 const PING_INTERVAL_SEC: u64 = 5;
@@ -55,7 +55,7 @@ fn create_waveform(buffer: &mut [u8]) -> WAVEHDR {
     }
 }
 
-macro_rules! winapi_call {
+macro_rules! win_api_call {
     ($expr:expr, $error_message:expr) => {{
         let result = unsafe { $expr };
         check_result(result, $error_message)
@@ -75,7 +75,7 @@ fn open_device() -> Result<HWAVEOUT, String> {
 
     let mut handler = HWAVEOUT::default();
 
-    winapi_call!(
+    win_api_call!(
         waveOutOpen(
             Some(&mut handler),
             WAVE_MAPPER,
@@ -91,30 +91,30 @@ fn open_device() -> Result<HWAVEOUT, String> {
 }
 
 fn close_device(device: HWAVEOUT) {
-    winapi_call!(waveOutClose(device), "Error closing audio device").unwrap_or_else(|e| {
+    win_api_call!(waveOutClose(device), "Error closing audio device").unwrap_or_else(|e| {
         eprintln!("{}", e);
     });
 }
 
 fn prepare_waveform(device: HWAVEOUT, waveform: &mut WAVEHDR) -> Result<(), String> {
-    winapi_call!(
+    win_api_call!(
         waveOutPrepareHeader(device, waveform, size_of::<WAVEHDR>() as u32),
         "Error preparing waveform"
     )
 }
 
 fn unprepare_waveform(device: HWAVEOUT, waveform: &mut WAVEHDR) {
-    winapi_call!(
+    win_api_call!(
         waveOutUnprepareHeader(device, waveform, size_of::<WAVEHDR>() as u32),
         "Error unpreparing waveform"
     )
-        .unwrap_or_else(|e| {
-            eprintln!("{}", e);
-        });
+    .unwrap_or_else(|e| {
+        eprintln!("{}", e);
+    });
 }
 
 fn play_waveform(device: HWAVEOUT, waveform: &mut WAVEHDR) -> Result<(), String> {
-    winapi_call!(
+    win_api_call!(
         waveOutWrite(device, waveform, size_of::<WAVEHDR>() as u32),
         "Error playing waveform"
     )
