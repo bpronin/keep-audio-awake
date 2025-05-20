@@ -1,7 +1,7 @@
 #![cfg_attr(feature = "gui", windows_subsystem = "windows")] /* hides console window */
 #[cfg(feature = "console")]
 mod console;
-mod ka_service;
+mod audio;
 #[cfg(feature = "gui")]
 mod ui;
 mod util;

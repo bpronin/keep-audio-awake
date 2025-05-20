@@ -1,6 +1,6 @@
 extern crate native_windows_gui as nwg;
 
-use crate::ka_service::KeepAwakeService;
+use crate::audio::KeepAwakeService;
 use nwg::NativeUi;
 use std::cell::RefCell;
 use std::sync::atomic::{AtomicBool, Ordering};

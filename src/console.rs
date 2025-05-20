@@ -1,4 +1,4 @@
-use crate::ka_service::KeepAwakeService;
+use crate::audio::{keep_audio_awake};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use crate::util;
@@ -22,7 +22,7 @@ pub(crate) fn run_main() -> Result<(), String> {
     util::check_app_running()?;
     
     let running = setup_exit_handler();
-    KeepAwakeService::run(running)?;
+    keep_audio_awake(running)?;
     
     Ok(())
 }

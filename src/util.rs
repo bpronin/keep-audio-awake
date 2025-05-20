@@ -23,3 +23,15 @@ pub fn check_app_running() -> Result<(), String> {
         }
     }
 }
+
+pub fn from_utf16(s: &[u16]) -> String {
+    use std::os::windows::ffi::OsStringExt;
+    use std::ffi::OsString;
+
+    let null_index = s.iter().position(|&i| i == 0).unwrap_or(s.len());
+    let os_string = OsString::from_wide(&s[0..null_index]);
+
+    os_string
+        .into_string()
+        .unwrap_or("Decoding error".to_string())
+}

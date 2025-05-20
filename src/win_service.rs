@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::ka_service::KeepAwakeService;
+use crate::audio::KeepAwakeService;
 use windows_service::service_control_handler::ServiceStatusHandle;
 use windows_service::{
     define_windows_service,
