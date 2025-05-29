@@ -1,23 +1,24 @@
 use crate::audio::keep_audio_awake;
-use crate::res::RESOURCES;
-use crate::res_ids::IDS_APP_IS_ALREADY_RUNNING;
-use crate::util::warn_message;
+use crate::ui::res_ids::{IDS_APP_IS_ALREADY_RUNNING, IDS_APP_TITLE};
 use crate::{rs, util};
 use native_windows_gui::{
-    GlobalCursor, Icon, Menu, MenuItem, MessageWindow, NativeUi, TrayNotification,
-    dispatch_thread_events, stop_thread_dispatch,
+    dispatch_thread_events, message, stop_thread_dispatch, GlobalCursor, Menu, MenuItem, MessageButtons,
+    MessageIcons, MessageParams, MessageWindow, NativeUi, TrayNotification,
 };
+use res::RESOURCES;
 use std::cell::RefCell;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::thread;
 use thread::JoinHandle;
 use util::check_app_running;
 
+mod res;
+mod res_ids;
+
 #[derive(Default)]
 pub struct App {
     window: MessageWindow,
-    icon: Icon,
     tray: TrayNotification,
     tray_menu: Menu,
     exit_menu_item: MenuItem,
@@ -50,26 +51,39 @@ impl App {
 }
 
 pub(crate) fn run_main() -> Result<(), String> {
+    native_windows_gui::init().expect("Failed to init Native Windows GUI");
+
     check_app_running().map_err(|e| {
         warn_message(rs!(IDS_APP_IS_ALREADY_RUNNING));
         e
     })?;
-           
-    App::build_ui(App::default()).expect("Failed to build UI");
+
+    /* do not remove `let _ui`! */
+    let _ui = App::build_ui(App::default()).expect("Failed to build UI");
+
     dispatch_thread_events();
 
     Ok(())
 }
 
+fn warn_message(text: &str) {
+    message(&MessageParams {
+        title: rs!(IDS_APP_TITLE),
+        content: text,
+        buttons: MessageButtons::Ok,
+        icons: MessageIcons::Warning,
+    });
+}
+
 mod app_ui {
-    use crate::res::RESOURCES;
-    use crate::res_ids::IDS_KEEPING_AUDIO_DEVICE_AWAKE;
-    use crate::res_ids::{IDI_APP_ICON, IDS_EXIT};
+    use crate::ui::res::RESOURCES;
+    use crate::ui::res_ids::IDS_KEEPING_AUDIO_DEVICE_AWAKE;
+    use crate::ui::res_ids::{IDI_APP_ICON, IDS_EXIT};
     use crate::ui::App;
     use crate::{r_icon, rs};
     use native_windows_gui::{
-        EventHandler, Menu, MenuItem, MessageWindow, NativeUi, NwgError, TrayNotification,
-        full_bind_event_handler, unbind_event_handler,
+        full_bind_event_handler, unbind_event_handler, EventHandler, Menu, MenuItem, MessageWindow, NativeUi,
+        NwgError, TrayNotification,
     };
     use std::cell::RefCell;
     use std::ops::Deref;
@@ -83,10 +97,6 @@ mod app_ui {
     impl NativeUi<AppUi> for App {
         fn build_ui(mut app: App) -> Result<AppUi, NwgError> {
             use native_windows_gui::Event as E;
-            
-            native_windows_gui::init().expect("Failed to init Native Windows GUI");
-            
-            app.icon = r_icon!(IDI_APP_ICON);
 
             /* Controls */
 
@@ -94,7 +104,7 @@ mod app_ui {
 
             TrayNotification::builder()
                 .parent(&app.window)
-                .icon(Some(&app.icon))
+                .icon(Some(&r_icon!(IDI_APP_ICON)))
                 .tip(Some(rs!(IDS_KEEPING_AUDIO_DEVICE_AWAKE)))
                 .build(&mut app.tray)?;
 
