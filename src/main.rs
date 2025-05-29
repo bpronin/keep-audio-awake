@@ -1,4 +1,4 @@
-#![cfg_attr(feature = "gui", windows_subsystem = "windows")] /* hides console window */
+#![cfg_attr(all(feature = "gui", not(feature = "debug")), windows_subsystem = "windows")] /* hides console window */
 #[cfg(feature = "console")]
 mod console;
 mod audio;

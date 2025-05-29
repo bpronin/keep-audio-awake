@@ -121,7 +121,10 @@ fn play_waveform(device: HWAVEOUT, waveform: &mut WAVEHDR) -> Result<(), String>
 }
 
 fn await_play_done(waveform: &mut WAVEHDR) {
-    while (waveform.dwFlags & WHDR_DONE) == 0 {
+    for _ in 0..100 {  /* wait no more than 1 second.*/
+        if (waveform.dwFlags & WHDR_DONE) != 0 {
+            break;
+        }
         thread::sleep(Duration::from_millis(10));
     }
 }
@@ -149,11 +152,23 @@ pub fn keep_audio_awake(running: Arc<AtomicBool>) -> Result<(), String> {
     let mut waveform = create_waveform(&mut buffer);
     prepare_waveform(device, &mut waveform)?;
 
+    dbg!("Running service");
+
     while running.load(Ordering::SeqCst) {
+        dbg!("Playing");
+
         play_waveform(device, &mut waveform)?;
         await_play_done(&mut waveform);
+
+        dbg!(format!(
+            "Play done. Waiting for {} seconds...",
+            PING_INTERVAL_SEC
+        ));
+
         thread::sleep(Duration::from_secs(PING_INTERVAL_SEC));
     }
+
+    dbg!("Stopping service");
 
     unprepare_waveform(device, &mut waveform);
     close_device(device);

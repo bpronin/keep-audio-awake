@@ -22,9 +22,9 @@ pub struct App {
 
 impl App {
     fn on_app_init(&self) {
+        self.service_running.store(true, Ordering::SeqCst);
         let running = Arc::clone(&self.service_running);
         *self.service_thread.borrow_mut() = Some(thread::spawn(move || {
-            running.store(true, Ordering::SeqCst);
             keep_audio_awake(running)?;
 
             Ok(())
@@ -39,7 +39,7 @@ impl App {
 
         nwg::stop_thread_dispatch();
     }
-
+    
     fn on_show_menu(&self) {
         let (x, y) = nwg::GlobalCursor::position();
         self.tray_menu.popup(x, y);
@@ -120,17 +120,17 @@ mod app_ui {
                     match evt {
                         E::OnInit => {
                             if &handle == &evt_ui.window {
-                                App::on_app_init(&evt_ui);
+                                evt_ui.on_app_init();
                             }
                         }
                         E::OnContextMenu => {
                             if &handle == &evt_ui.tray {
-                                App::on_show_menu(&evt_ui);
+                                evt_ui.on_show_menu();
                             }
                         }
                         E::OnMenuItemSelected => {
                             if &handle == &evt_ui.exit_menu_item {
-                                App::on_app_exit(&evt_ui);
+                                evt_ui.on_app_exit();
                             }
                         }
                         _ => {}
@@ -150,7 +150,6 @@ mod app_ui {
     }
 
     impl Drop for SystemTrayUi {
-        /// To make sure that everything is freed without issues, the default handler must be unbound.
         fn drop(&mut self) {
             let mut handlers = self.default_handler.borrow_mut();
             for handler in handlers.drain(0..) {
