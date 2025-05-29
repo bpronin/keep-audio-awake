@@ -10,6 +10,8 @@ mod ui;
 mod util;
 #[cfg(feature = "win_service")]
 mod win_service;
+mod res;
+mod res_ids;
 
 fn main() -> Result<(), String> {
     #[cfg(feature = "gui")]

@@ -1,4 +1,20 @@
 #define RT_MANIFEST 24
 1 RT_MANIFEST "keep-audio-awake.exe.manifest"
 
+#define IDI_APP_ICON 1001
 IDI_APP_ICON ICON "res/app.ico"
+
+/* Strings */
+
+#define IDS_APP_TITLE 1001
+#define IDS_EXIT 1002
+#define IDS_KEEPING_AUDIO_DEVICE_AWAKE 1003
+#define IDS_APP_IS_ALREADY_RUNNING 1004
+
+STRINGTABLE
+BEGIN
+    IDS_APP_TITLE "KeepAuAwake"
+    IDS_EXIT "Exit"
+    IDS_KEEPING_AUDIO_DEVICE_AWAKE "Keeping audio device awake"
+    IDS_APP_IS_ALREADY_RUNNING "Application is already running."
+END

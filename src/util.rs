@@ -1,4 +1,7 @@
-use std::ffi::OsString;
+use crate::res::RESOURCES;
+use crate::res_ids::IDS_APP_TITLE;
+use crate::rs;
+use native_windows_gui::{message, MessageButtons, MessageIcons, MessageParams};
 use std::time::Duration;
 use std::{ptr, thread};
 use windows::core::PCSTR;
@@ -6,13 +9,22 @@ use windows::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS};
 use windows::Win32::Storage::FileSystem::SYNCHRONIZE;
 use windows::Win32::System::Threading::CreateMutexExA;
 
+pub fn warn_message(text: &str) {
+    message(&MessageParams {
+        title: rs!(IDS_APP_TITLE),
+        content: text,
+        buttons: MessageButtons::Ok,
+        icons: MessageIcons::Warning,
+    });
+}
+
 pub fn check_app_running() -> Result<(), String> {
-    let name = b"Global\\8e22f9ab-0f7f-4f01-8dc2-6047b74a2a99\0";
+    let mutex_id = b"Global\\8e22f9ab-0f7f-4f01-8dc2-6047b74a2a99\0";
 
     unsafe {
         let handle = CreateMutexExA(
             Some(ptr::null_mut()),
-            PCSTR(name.as_ptr()),
+            PCSTR(mutex_id.as_ptr()),
             0,
             SYNCHRONIZE.0,
         )

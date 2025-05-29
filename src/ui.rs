@@ -1,21 +1,26 @@
-extern crate native_windows_gui as nwg;
-
 use crate::audio::keep_audio_awake;
-use crate::util;
-use nwg::NativeUi;
+use crate::res::RESOURCES;
+use crate::res_ids::IDS_APP_IS_ALREADY_RUNNING;
+use crate::util::warn_message;
+use crate::{rs, util};
+use native_windows_gui::{
+    GlobalCursor, Icon, Menu, MenuItem, MessageWindow, NativeUi, TrayNotification,
+    dispatch_thread_events, stop_thread_dispatch,
+};
 use std::cell::RefCell;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use thread::JoinHandle;
+use util::check_app_running;
 
 #[derive(Default)]
 pub struct App {
-    window: nwg::MessageWindow,
-    icon: nwg::Icon,
-    tray: nwg::TrayNotification,
-    tray_menu: nwg::Menu,
-    exit_menu_item: nwg::MenuItem,
+    window: MessageWindow,
+    icon: Icon,
+    tray: TrayNotification,
+    tray_menu: Menu,
+    exit_menu_item: MenuItem,
     service_thread: RefCell<Option<JoinHandle<Result<(), String>>>>,
     service_running: Arc<AtomicBool>,
 }
@@ -35,77 +40,77 @@ impl App {
         self.service_running.store(false, Ordering::SeqCst);
         self.service_thread.take().unwrap().join().unwrap().unwrap();
 
-        nwg::stop_thread_dispatch();
+        stop_thread_dispatch();
     }
 
     fn on_show_menu(&self) {
-        let (x, y) = nwg::GlobalCursor::position();
+        let (x, y) = GlobalCursor::position();
         self.tray_menu.popup(x, y);
     }
 }
 
 pub(crate) fn run_main() -> Result<(), String> {
-    nwg::init().expect("Failed to init Native Windows GUI");
-
-    util::check_app_running().map_err(|e| {
-        nwg::error_message("Error", "Application is already running.");
+    check_app_running().map_err(|e| {
+        warn_message(rs!(IDS_APP_IS_ALREADY_RUNNING));
         e
     })?;
-
-    let _ui = App::build_ui(App::default()).expect("Failed to build UI");
-    nwg::dispatch_thread_events();
+           
+    App::build_ui(App::default()).expect("Failed to build UI");
+    dispatch_thread_events();
 
     Ok(())
 }
 
 mod app_ui {
+    use crate::res::RESOURCES;
+    use crate::res_ids::IDS_KEEPING_AUDIO_DEVICE_AWAKE;
+    use crate::res_ids::{IDI_APP_ICON, IDS_EXIT};
     use crate::ui::App;
-    use native_windows_gui as nwg;
+    use crate::{r_icon, rs};
+    use native_windows_gui::{
+        EventHandler, Menu, MenuItem, MessageWindow, NativeUi, NwgError, TrayNotification,
+        full_bind_event_handler, unbind_event_handler,
+    };
     use std::cell::RefCell;
     use std::ops::Deref;
     use std::rc::Rc;
 
-    pub struct SystemTrayUi {
+    pub struct AppUi {
         inner: Rc<App>,
-        default_handler: RefCell<Vec<nwg::EventHandler>>,
+        default_handler: RefCell<Vec<EventHandler>>,
     }
 
-    impl nwg::NativeUi<SystemTrayUi> for App {
-        fn build_ui(mut app: App) -> Result<SystemTrayUi, nwg::NwgError> {
-            use nwg::Event as E;
-
-            /* Resources */
-
-            let resource = nwg::EmbedResource::load(None).unwrap();
-
-            nwg::Icon::builder()
-                .source_embed(Some(&resource))
-                .source_embed_str(Some("IDI_APP_ICON"))
-                .build(&mut app.icon)?;
+    impl NativeUi<AppUi> for App {
+        fn build_ui(mut app: App) -> Result<AppUi, NwgError> {
+            use native_windows_gui::Event as E;
+            
+            native_windows_gui::init().expect("Failed to init Native Windows GUI");
+            
+            app.icon = r_icon!(IDI_APP_ICON);
 
             /* Controls */
 
-            nwg::MessageWindow::builder().build(&mut app.window)?;
+            MessageWindow::builder().build(&mut app.window)?;
 
-            nwg::TrayNotification::builder()
+            TrayNotification::builder()
                 .parent(&app.window)
                 .icon(Some(&app.icon))
-                .tip(Some("Keeping audio device awake"))
+                .tip(Some(rs!(IDS_KEEPING_AUDIO_DEVICE_AWAKE)))
                 .build(&mut app.tray)?;
 
-            nwg::Menu::builder()
+            Menu::builder()
                 .popup(true)
                 .parent(&app.window)
                 .build(&mut app.tray_menu)?;
 
-            nwg::MenuItem::builder()
-                .text("Exit")
+            MenuItem::builder()
+                .text(rs!(IDS_EXIT))
                 .parent(&app.tray_menu)
                 .build(&mut app.exit_menu_item)?;
 
             /* Wrap-up */
 
-            let ui = SystemTrayUi {
+            let ui = AppUi {
                 inner: Rc::new(app),
                 default_handler: Default::default(),
             };
@@ -138,25 +143,22 @@ mod app_ui {
 
             ui.default_handler
                 .borrow_mut()
-                .push(nwg::full_bind_event_handler(
-                    &ui.window.handle,
-                    handle_events,
-                ));
+                .push(full_bind_event_handler(&ui.window.handle, handle_events));
 
             Ok(ui)
         }
     }
 
-    impl Drop for SystemTrayUi {
+    impl Drop for AppUi {
         fn drop(&mut self) {
             let mut handlers = self.default_handler.borrow_mut();
             for handler in handlers.drain(0..) {
-                nwg::unbind_event_handler(&handler);
+                unbind_event_handler(&handler);
             }
         }
     }
 
-    impl Deref for SystemTrayUi {
+    impl Deref for AppUi {
         type Target = App;
 
         fn deref(&self) -> &App {
