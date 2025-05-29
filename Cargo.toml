@@ -9,6 +9,7 @@ embed-resource = "3.0.2"
 [dependencies]
 windows = { version = "0.61.1", features = ["Win32_System_Threading", "Win32_Storage_FileSystem", "Win32_Foundation", "Win32_Media", "Win32_Media_Audio", "Win32_Security"] }
 native-windows-gui = { version = "1.0.13", optional = true }
+
 windows-service = { version = "0.8.0", optional = true }
 ctrlc = { version = "3.4.6", optional = true }
 

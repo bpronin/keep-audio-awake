@@ -69,6 +69,6 @@ fn update_service_status(
 
 pub(crate) fn run_main() -> Result<(), String> {
     service_dispatcher::start(SERVICE_NAME, ffi_service_main).map_err(|e| e.to_string())?;
-    
+
     Ok(())
 }

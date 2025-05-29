@@ -1,8 +1,7 @@
-use crate::util::from_utf16;
+use crate::util::{from_utf16, sleep_cancelable};
 use std::ptr::null_mut;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::thread;
 use std::time::Duration;
 use windows::core::PSTR;
 use windows::Win32::Media::Audio::{
@@ -121,12 +120,10 @@ fn play_waveform(device: HWAVEOUT, waveform: &mut WAVEHDR) -> Result<(), String>
 }
 
 fn await_play_done(waveform: &mut WAVEHDR) {
-    for _ in 0..100 {  /* wait no more than 1 second.*/
-        if (waveform.dwFlags & WHDR_DONE) != 0 {
-            break;
-        }
-        thread::sleep(Duration::from_millis(10));
-    }
+    /* wait for flag no more than 1 second.*/
+    sleep_cancelable(Duration::from_secs(1), || {
+        (waveform.dwFlags & WHDR_DONE) != 0
+    });
 }
 
 fn check_result(result: u32, message: &str) -> Result<(), String> {
@@ -152,23 +149,15 @@ pub fn keep_audio_awake(running: Arc<AtomicBool>) -> Result<(), String> {
     let mut waveform = create_waveform(&mut buffer);
     prepare_waveform(device, &mut waveform)?;
 
-    dbg!("Running service");
-
     while running.load(Ordering::SeqCst) {
-        dbg!("Playing");
-
         play_waveform(device, &mut waveform)?;
+
         await_play_done(&mut waveform);
 
-        dbg!(format!(
-            "Play done. Waiting for {} seconds...",
-            PING_INTERVAL_SEC
-        ));
-
-        thread::sleep(Duration::from_secs(PING_INTERVAL_SEC));
+        sleep_cancelable(Duration::from_secs(PING_INTERVAL_SEC), || {
+            !running.load(Ordering::Relaxed)
+        });
     }
-
-    dbg!("Stopping service");
 
     unprepare_waveform(device, &mut waveform);
     close_device(device);

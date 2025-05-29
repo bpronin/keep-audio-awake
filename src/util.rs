@@ -1,4 +1,6 @@
-use std::ptr;
+use std::ffi::OsString;
+use std::time::Duration;
+use std::{ptr, thread};
 use windows::core::PCSTR;
 use windows::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS};
 use windows::Win32::Storage::FileSystem::SYNCHRONIZE;
@@ -25,8 +27,8 @@ pub fn check_app_running() -> Result<(), String> {
 }
 
 pub fn from_utf16(s: &[u16]) -> String {
-    use std::os::windows::ffi::OsStringExt;
     use std::ffi::OsString;
+    use std::os::windows::ffi::OsStringExt;
 
     let null_index = s.iter().position(|&i| i == 0).unwrap_or(s.len());
     let os_string = OsString::from_wide(&s[0..null_index]);
@@ -34,4 +36,24 @@ pub fn from_utf16(s: &[u16]) -> String {
     os_string
         .into_string()
         .unwrap_or("Decoding error".to_string())
+}
+
+pub fn sleep_cancelable<F>(duration: Duration, should_cancel: F)
+where
+    F: Fn() -> bool,
+{
+    let short = Duration::from_millis(10);
+    let steps = duration.as_millis() / short.as_millis();
+    let remainder = duration - (short * steps as u32);
+
+    for _ in 0..steps {
+        if should_cancel() {
+            return;
+        }
+        thread::sleep(short);
+    }
+
+    if !should_cancel() && remainder > Duration::ZERO {
+        thread::sleep(remainder);
+    }
 }

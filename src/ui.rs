@@ -1,13 +1,13 @@
 extern crate native_windows_gui as nwg;
 
+use crate::audio::keep_audio_awake;
+use crate::util;
 use nwg::NativeUi;
 use std::cell::RefCell;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
 use thread::JoinHandle;
-use crate::audio::keep_audio_awake;
-use crate::util;
 
 #[derive(Default)]
 pub struct App {
@@ -32,14 +32,12 @@ impl App {
     }
 
     fn on_app_exit(&self) {
-        self.tray.set_visibility(false); /* hide it first because stopping service may take time */
-
         self.service_running.store(false, Ordering::SeqCst);
         self.service_thread.take().unwrap().join().unwrap().unwrap();
 
         nwg::stop_thread_dispatch();
     }
-    
+
     fn on_show_menu(&self) {
         let (x, y) = nwg::GlobalCursor::position();
         self.tray_menu.popup(x, y);
@@ -53,7 +51,7 @@ pub(crate) fn run_main() -> Result<(), String> {
         nwg::error_message("Error", "Application is already running.");
         e
     })?;
-    
+
     let _ui = App::build_ui(App::default()).expect("Failed to build UI");
     nwg::dispatch_thread_events();
 
@@ -79,7 +77,7 @@ mod app_ui {
             /* Resources */
 
             let resource = nwg::EmbedResource::load(None).unwrap();
-            
+
             nwg::Icon::builder()
                 .source_embed(Some(&resource))
                 .source_embed_str(Some("IDI_APP_ICON"))

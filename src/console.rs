@@ -1,7 +1,7 @@
-use crate::audio::{keep_audio_awake};
+use crate::audio::keep_audio_awake;
+use crate::util;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use crate::util;
 
 fn setup_exit_handler() -> Arc<AtomicBool> {
     let running = Arc::new(AtomicBool::new(true));
@@ -20,9 +20,9 @@ fn setup_exit_handler() -> Arc<AtomicBool> {
 
 pub(crate) fn run_main() -> Result<(), String> {
     util::check_app_running()?;
-    
+
     let running = setup_exit_handler();
     keep_audio_awake(running)?;
-    
+
     Ok(())
 }
