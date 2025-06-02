@@ -1,5 +1,5 @@
 use crate::audio::keep_audio_awake;
-use crate::ui::res_ids::{IDS_APP_IS_ALREADY_RUNNING, IDS_APP_TITLE};
+use crate::gui::res_ids::{IDS_APP_IS_ALREADY_RUNNING, IDS_APP_TITLE};
 use crate::{rs, util};
 use native_windows_gui::{
     dispatch_thread_events, message, stop_thread_dispatch, GlobalCursor, Menu, MenuItem, MessageButtons,
@@ -76,10 +76,10 @@ fn warn_message(text: &str) {
 }
 
 mod app_ui {
-    use crate::ui::res::RESOURCES;
-    use crate::ui::res_ids::IDS_KEEPING_AUDIO_DEVICE_AWAKE;
-    use crate::ui::res_ids::{IDI_APP_ICON, IDS_EXIT};
-    use crate::ui::App;
+    use crate::gui::res::RESOURCES;
+    use crate::gui::res_ids::IDS_KEEPING_AUDIO_DEVICE_AWAKE;
+    use crate::gui::res_ids::{IDI_APP_ICON, IDS_EXIT};
+    use crate::gui::App;
     use crate::{r_icon, rs};
     use native_windows_gui::{
         full_bind_event_handler, unbind_event_handler, EventHandler, Menu, MenuItem, MessageWindow, NativeUi,

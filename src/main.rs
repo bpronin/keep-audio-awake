@@ -4,20 +4,20 @@
 )] /* hides console window */
 
 mod audio;
-#[cfg(feature = "console")]
-mod console;
+#[cfg(feature = "cli")]
+mod cli;
 #[cfg(feature = "gui")]
-mod ui;
+mod gui;
 mod util;
 #[cfg(feature = "win_service")]
 mod win_service;
 
 fn main() -> Result<(), String> {
     #[cfg(feature = "gui")]
-    ui::run_main()?;
+    gui::run_main()?;
 
-    #[cfg(feature = "console")]
-    console::run_main()?;
+    #[cfg(feature = "cli")]
+    cli::run_main()?;
 
     #[cfg(feature = "win_service")]
     win_service::run_main()?;
