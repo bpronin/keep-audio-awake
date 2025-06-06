@@ -2,7 +2,9 @@
 1 RT_MANIFEST "keep-audio-awake.exe.manifest"
 
 #define IDI_APP_ICON 1001
+#define IDI_APP_ICON_GRAY 1002
 IDI_APP_ICON ICON "res/app.ico"
+IDI_APP_ICON_GRAY ICON "res/app_gray.ico"
 
 /* Strings */
 

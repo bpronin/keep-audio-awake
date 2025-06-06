@@ -1,6 +1,7 @@
 use crate::util::{from_utf16, sleep_cancelable};
 use std::ptr::null_mut;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use std::time::Duration;
 use windows::core::PSTR;
@@ -17,6 +18,8 @@ const PING_INTERVAL_SEC: u64 = 5;
 const PING_INTERVAL_SEC: u64 = 2;
 
 const SAMPLES_PER_SEC: u32 = 44100;
+pub const EVT_START_PLAYING: u8 = 100;
+pub const EVT_END_PLAYING: u8 = 101;
 
 #[cfg(not(feature = "debug"))]
 /// Generates 100 millis of silence.
@@ -143,16 +146,19 @@ fn check_result(result: u32, message: &str) -> Result<(), String> {
     }
 }
 
-pub fn keep_audio_awake(running: Arc<AtomicBool>) -> Result<(), String> {
+pub fn keep_audio_awake(running: Arc<AtomicBool>, sender: Sender<u8>) -> Result<(), String> {
     let device = open_device()?;
     let mut buffer = generate_waveform();
     let mut waveform = create_waveform(&mut buffer);
     prepare_waveform(device, &mut waveform)?;
 
     while running.load(Ordering::SeqCst) {
+        sender.send(EVT_START_PLAYING).unwrap();
+        
         play_waveform(device, &mut waveform)?;
-
         await_play_done(&mut waveform);
+        
+        sender.send(EVT_END_PLAYING).unwrap();
 
         sleep_cancelable(Duration::from_secs(PING_INTERVAL_SEC), || {
             !running.load(Ordering::Relaxed)

@@ -22,7 +22,7 @@ pub(crate) fn run_main() -> Result<(), String> {
     util::check_app_running()?;
 
     let running = setup_exit_handler();
-    keep_audio_awake(running)?;
+    keep_audio_awake(running, )?;
 
     Ok(())
 }
