@@ -1,19 +1,22 @@
 use crate::audio::AudioControl;
 use crate::gui::res_ids::{
-    IDI_APP_ICON, IDI_APP_ICON_GRAY, IDS_APP_IS_ALREADY_RUNNING, IDS_APP_TITLE,
+    IDS_APP_IS_ALREADY_RUNNING, IDS_APP_TITLE,
 };
+use crate::gui::tray_icon::start_blink_icon;
 use crate::util::hwnd;
-use crate::{r_icon, rs, util};
+use crate::{rs, util};
 use native_windows_gui::{
     dispatch_thread_events, message, stop_thread_dispatch, GlobalCursor, Menu, MenuItem, MessageButtons,
     MessageIcons, MessageParams, MessageWindow, NativeUi, TrayNotification,
 };
 use res::RESOURCES;
 use std::cell::RefCell;
+use tray_icon::stop_blink_icon;
 use util::check_app_running;
 
 mod res;
 mod res_ids;
+mod tray_icon;
 
 #[derive(Default)]
 pub struct App {
@@ -22,17 +25,17 @@ pub struct App {
     tray_menu: Menu,
     exit_menu_item: MenuItem,
     audio: RefCell<AudioControl>,
-    current_icon_res: RefCell<usize>,
 }
 
 impl App {
     fn on_app_exit(&self) {
+        stop_blink_icon(&self.window, &self.tray);
         self.audio.borrow_mut().stop();
         stop_thread_dispatch();
     }
 
     fn on_timer(&self) {
-        self.toggle_app_icon();
+        start_blink_icon(&self.window, &self.tray);
         self.audio
             .borrow_mut()
             .play()
@@ -50,16 +53,6 @@ impl App {
             .start(hwnd(self.window.handle))
             .expect("Failed to start audio controller");
         dispatch_thread_events();
-    }
-
-    fn toggle_app_icon(&self) {
-        let icon_res = if self.current_icon_res.borrow().eq(&IDI_APP_ICON) {
-            IDI_APP_ICON_GRAY
-        } else {
-            IDI_APP_ICON
-        };
-        self.tray.set_icon(&r_icon!(icon_res));
-        self.current_icon_res.replace(icon_res);
     }
 }
 
@@ -92,15 +85,18 @@ mod app_ui {
     use crate::gui::res::RESOURCES;
     use crate::gui::res_ids::IDS_KEEPING_AUDIO_DEVICE_AWAKE;
     use crate::gui::res_ids::{IDI_APP_ICON, IDS_EXIT};
+    use crate::gui::tray_icon::{stop_blink_icon, TIMER_ICON_BLINK};
     use crate::gui::App;
     use crate::{r_icon, rs};
+    use audio::TIMER_AUDIO;
     use native_windows_gui::{
-        full_bind_event_handler, unbind_event_handler, ControlHandle, EventHandler, Menu, MenuItem, MessageWindow,
+        full_bind_event_handler, unbind_event_handler, ControlHandle, Event, EventHandler, Menu, MenuItem, MessageWindow,
         NativeUi, NwgError, TrayNotification,
     };
     use std::cell::RefCell;
     use std::ops::Deref;
     use std::rc::Rc;
+    use ControlHandle::Timer;
 
     pub struct AppUi {
         inner: Rc<App>,
@@ -109,8 +105,6 @@ mod app_ui {
 
     impl NativeUi<AppUi> for App {
         fn build_ui(mut app: App) -> Result<AppUi, NwgError> {
-            use native_windows_gui::Event as E;
-
             /* Controls */
 
             MessageWindow::builder().build(&mut app.window)?;
@@ -144,19 +138,21 @@ mod app_ui {
             let handle_events = move |evt, _data, handle| {
                 if let Some(app) = app_weak.upgrade() {
                     match evt {
-                        E::OnTimerTick => {
-                            if let ControlHandle::Timer(_hwnd, timer_id) = handle {
-                                if timer_id as usize == audio::TIMER_ID {
+                        Event::OnTimerTick => {
+                            if let Timer(_hwnd, timer_id) = handle {
+                                if timer_id as usize == TIMER_AUDIO {
                                     app.on_timer()
+                                } else if timer_id as usize == TIMER_ICON_BLINK {
+                                    stop_blink_icon(&app.window, &app.tray);
                                 }
                             }
                         }
-                        E::OnContextMenu => {
+                        Event::OnContextMenu => {
                             if &handle == &app.tray {
                                 app.on_show_menu();
                             }
                         }
-                        E::OnMenuItemSelected => {
+                        Event::OnMenuItemSelected => {
                             if &handle == &app.exit_menu_item {
                                 app.on_app_exit();
                             }

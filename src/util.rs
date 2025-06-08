@@ -1,10 +1,11 @@
-use native_windows_gui::ControlHandle;
+use native_windows_gui::{ControlHandle, TrayNotification, Window};
 use std::time::Duration;
 use std::{ptr, thread};
 use windows::core::PCSTR;
 use windows::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS, HWND};
 use windows::Win32::Storage::FileSystem::SYNCHRONIZE;
 use windows::Win32::System::Threading::CreateMutexExA;
+use windows::Win32::UI::WindowsAndMessaging::{KillTimer, SetTimer};
 
 pub fn hwnd(handle: ControlHandle) -> Option<HWND> {
     Some(HWND(handle.hwnd().unwrap() as _))

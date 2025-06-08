@@ -11,7 +11,7 @@ use windows::Win32::Media::Audio::{
 use windows::Win32::Media::MMSYSERR_NOERROR;
 use windows::Win32::UI::WindowsAndMessaging::{KillTimer, SetTimer};
 
-pub const TIMER_ID: usize = 100;
+pub const TIMER_AUDIO: usize = 100;
 #[cfg(not(feature = "debug"))]
 const TIMER_PERIOD_MS: u32 = 5000;
 #[cfg(feature = "debug")]
@@ -36,7 +36,7 @@ impl AudioControl {
         prepare_waveform(self.device, &mut self.waveform)?;
 
         unsafe {
-            if SetTimer(self.window, TIMER_ID, TIMER_PERIOD_MS, None) == 0 {
+            if SetTimer(self.window, TIMER_AUDIO, TIMER_PERIOD_MS, None) == 0 {
                 Err("Failed to set timer")?
             }
         }
@@ -53,7 +53,7 @@ impl AudioControl {
 
     pub fn stop(&mut self) {
         unsafe {
-            KillTimer(self.window, TIMER_ID).unwrap_or_else(|e| {
+            KillTimer(self.window, TIMER_AUDIO).unwrap_or_else(|e| {
                 eprintln!("Failed to kill timer. {}", e);
             });
         }
