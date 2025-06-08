@@ -1,20 +1,15 @@
-use crate::audio::keep_audio_awake;
+use crate::audio::AudioControl;
 use crate::gui::res_ids::{
     IDI_APP_ICON, IDI_APP_ICON_GRAY, IDS_APP_IS_ALREADY_RUNNING, IDS_APP_TITLE,
 };
-use crate::{audio, r_icon, rs, util};
-use audio::EVT_READY;
+use crate::util::hwnd;
+use crate::{r_icon, rs, util};
 use native_windows_gui::{
-    message, stop_thread_dispatch, GlobalCursor, Menu, MenuItem, MessageButtons, MessageIcons,
-    MessageParams, MessageWindow, NativeUi, TrayNotification,
+    dispatch_thread_events, message, stop_thread_dispatch, GlobalCursor, Menu, MenuItem, MessageButtons,
+    MessageIcons, MessageParams, MessageWindow, NativeUi, TrayNotification,
 };
 use res::RESOURCES;
 use std::cell::RefCell;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::Receiver;
-use std::sync::{mpsc, Arc};
-use std::thread;
-use thread::JoinHandle;
 use util::check_app_running;
 
 mod res;
@@ -26,31 +21,22 @@ pub struct App {
     tray: TrayNotification,
     tray_menu: Menu,
     exit_menu_item: MenuItem,
-    service_thread: RefCell<Option<JoinHandle<Result<(), String>>>>,
-    service_running: Arc<AtomicBool>,
-    receiver: RefCell<Option<Receiver<u8>>>,
+    audio: RefCell<AudioControl>,
     current_icon_res: RefCell<usize>,
 }
 
 impl App {
-    fn on_app_init(&self) {
-        let (tx, rx) = mpsc::channel();
-        self.receiver.replace(Some(rx));
-
-        self.service_running.store(true, Ordering::SeqCst);
-        let running = Arc::clone(&self.service_running);
-        *self.service_thread.borrow_mut() = Some(thread::spawn(move || {
-            keep_audio_awake(running, tx)?;
-
-            Ok(())
-        }));
+    fn on_app_exit(&self) {
+        self.audio.borrow_mut().stop();
+        stop_thread_dispatch();
     }
 
-    fn on_app_exit(&self) {
-        self.service_running.store(false, Ordering::SeqCst);
-        self.service_thread.take().unwrap().join().unwrap().unwrap();
-
-        stop_thread_dispatch();
+    fn on_timer(&self) {
+        self.toggle_app_icon();
+        self.audio
+            .borrow_mut()
+            .play()
+            .expect("Failed to play audio");
     }
 
     fn on_show_menu(&self) {
@@ -58,30 +44,15 @@ impl App {
         self.tray_menu.popup(x, y);
     }
 
-    pub(crate) fn receive_events(&self) {
-        if let Some(receiver) = self.receiver.borrow().as_ref() {
-            while let Ok(event) = receiver.try_recv() {
-                println!("Received event: {:?}", event);
-                if event == EVT_READY {
-                    self.toggle_app_icon()
-                }
-                // match event {
-                //     EVT_BUSY => self.tray.set_icon(&r_icon!(IDI_APP_ICON_GRAY)),
-                //     EVT_READY => self.tray.set_icon(&r_icon!(IDI_APP_ICON)),
-                //     _ => panic!("Unknown event")
-                // }
-            }
-        }
+    pub fn run(&self) {
+        self.audio
+            .borrow_mut()
+            .start(hwnd(self.window.handle))
+            .expect("Failed to start audio controller");
+        dispatch_thread_events();
     }
 
     fn toggle_app_icon(&self) {
-        // let hwnd = HWND(self.window.handle.hwnd().unwrap() as _);
-        // invoke_later(
-        //     hwnd,
-        //     100,
-        //     Duration::from_secs(1),self.on_timer(),
-        // )
-
         let icon_res = if self.current_icon_res.borrow().eq(&IDI_APP_ICON) {
             IDI_APP_ICON_GRAY
         } else {
@@ -89,10 +60,6 @@ impl App {
         };
         self.tray.set_icon(&r_icon!(icon_res));
         self.current_icon_res.replace(icon_res);
-    }
-
-    fn on_timer(&self) {
-        println!("toggle_app_icon");
     }
 }
 
@@ -121,13 +88,14 @@ fn warn_message(text: &str) {
 }
 
 mod app_ui {
+    use crate::audio;
     use crate::gui::res::RESOURCES;
     use crate::gui::res_ids::IDS_KEEPING_AUDIO_DEVICE_AWAKE;
     use crate::gui::res_ids::{IDI_APP_ICON, IDS_EXIT};
     use crate::gui::App;
     use crate::{r_icon, rs};
     use native_windows_gui::{
-        dispatch_thread_events_with_callback, full_bind_event_handler, unbind_event_handler, EventHandler, Menu, MenuItem, MessageWindow,
+        full_bind_event_handler, unbind_event_handler, ControlHandle, EventHandler, Menu, MenuItem, MessageWindow,
         NativeUi, NwgError, TrayNotification,
     };
     use std::cell::RefCell;
@@ -137,17 +105,6 @@ mod app_ui {
     pub struct AppUi {
         inner: Rc<App>,
         default_handler: RefCell<Vec<EventHandler>>,
-    }
-
-    impl AppUi {
-        pub(crate) fn run(&self) {
-            let app_weak = Rc::downgrade(&self.inner);
-            dispatch_thread_events_with_callback(move || {
-                if let Some(app) = app_weak.upgrade() {
-                    app.receive_events()
-                }
-            });
-        }
     }
 
     impl NativeUi<AppUi> for App {
@@ -184,12 +141,14 @@ mod app_ui {
             /* Events */
 
             let app_weak = Rc::downgrade(&ui.inner);
-            let handle_events = move |evt, _evt_data, handle| {
+            let handle_events = move |evt, _data, handle| {
                 if let Some(app) = app_weak.upgrade() {
                     match evt {
-                        E::OnInit => {
-                            if &handle == &app.window {
-                                app.on_app_init();
+                        E::OnTimerTick => {
+                            if let ControlHandle::Timer(_hwnd, timer_id) = handle {
+                                if timer_id as usize == audio::TIMER_ID {
+                                    app.on_timer()
+                                }
                             }
                         }
                         E::OnContextMenu => {

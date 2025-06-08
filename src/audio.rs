@@ -1,25 +1,67 @@
 use crate::util::{from_utf16, sleep_cancelable};
 use std::ptr::null_mut;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::Sender;
-use std::sync::Arc;
 use std::time::Duration;
 use windows::core::PSTR;
+use windows::Win32::Foundation::HWND;
 use windows::Win32::Media::Audio::{
     waveOutClose, waveOutGetErrorTextW, waveOutOpen, waveOutPrepareHeader, waveOutUnprepareHeader, waveOutWrite, CALLBACK_NULL,
     HWAVEOUT, WAVEFORMATEX, WAVEHDR, WAVE_FORMAT_PCM, WAVE_MAPPER,
     WHDR_DONE,
 };
 use windows::Win32::Media::MMSYSERR_NOERROR;
+use windows::Win32::UI::WindowsAndMessaging::{KillTimer, SetTimer};
 
+pub const TIMER_ID: usize = 100;
 #[cfg(not(feature = "debug"))]
-const PING_INTERVAL_SEC: u64 = 5;
+const TIMER_PERIOD_MS: u32 = 5000;
 #[cfg(feature = "debug")]
-const PING_INTERVAL_SEC: u64 = 2;
+const TIMER_PERIOD_MS: u32 = 2000;
 
 const SAMPLES_PER_SEC: u32 = 44100;
-pub const EVT_BUSY: u8 = 100;
-pub const EVT_READY: u8 = 101;
+
+#[derive(Default)]
+pub struct AudioControl {
+    window: Option<HWND>,
+    device: HWAVEOUT,
+    buffer: Vec<u8>,
+    waveform: WAVEHDR,
+}
+
+impl AudioControl {
+    pub fn start(&mut self, hwnd: Option<HWND>) -> Result<(), String> {
+        self.window = hwnd;
+        self.device = open_device()?;
+        self.buffer = generate_waveform();
+        self.waveform = create_waveform(&mut self.buffer);
+        prepare_waveform(self.device, &mut self.waveform)?;
+
+        unsafe {
+            if SetTimer(self.window, TIMER_ID, TIMER_PERIOD_MS, None) == 0 {
+                Err("Failed to set timer")?
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn play(&mut self) -> Result<(), String> {
+        play_waveform(self.device, &mut self.waveform)?;
+        await_play_done(&self.waveform);
+
+        Ok(())
+    }
+
+    pub fn stop(&mut self) {
+        unsafe {
+            KillTimer(self.window, TIMER_ID).unwrap_or_else(|e| {
+                eprintln!("Failed to kill timer. {}", e);
+            });
+        }
+
+        unprepare_waveform(self.device, &mut self.waveform);
+        close_device(self.device);
+    }
+}
 
 #[cfg(not(feature = "debug"))]
 /// Generates 10 millis of silence.
@@ -122,7 +164,7 @@ fn play_waveform(device: HWAVEOUT, waveform: &mut WAVEHDR) -> Result<(), String>
     )
 }
 
-fn await_play_done(waveform: &mut WAVEHDR) {
+fn await_play_done(waveform: &WAVEHDR) {
     /* wait for flag no more than 1 second.*/
     sleep_cancelable(Duration::from_secs(1), || {
         (waveform.dwFlags & WHDR_DONE) != 0
@@ -146,34 +188,26 @@ fn check_result(result: u32, message: &str) -> Result<(), String> {
     }
 }
 
-pub fn keep_audio_awake(running: Arc<AtomicBool>, event_sink: Sender<u8>) -> Result<(), String> {
-    let device = open_device()?;
-    let mut buffer = generate_waveform();
-    let mut waveform = create_waveform(&mut buffer);
-    prepare_waveform(device, &mut waveform)?;
-
-    while running.load(Ordering::SeqCst) {
-        event_sink.send(EVT_BUSY).unwrap_or_else(|e| {
-            eprintln!("{}", e);
-        });
-        
-        play_waveform(device, &mut waveform)?;
-        await_play_done(&mut waveform);
-        
-        event_sink.send(EVT_READY).unwrap_or_else(|e| {
-            eprintln!("{}", e);
-        });
-
-        sleep_cancelable(Duration::from_secs(PING_INTERVAL_SEC), || {
-            !running.load(Ordering::Relaxed)
-        });
-    }
-
-    unprepare_waveform(device, &mut waveform);
-    close_device(device);
-
-    Ok(())
-}
+// pub fn keep_audio_awake(running: Arc<AtomicBool>, event_sink: Sender<u8>) -> Result<(), String> {
+//     let device = open_device()?;
+//     let mut buffer = generate_waveform();
+//     let mut waveform = create_waveform(&mut buffer);
+//     prepare_waveform(device, &mut waveform)?;
+//
+//     while running.load(Ordering::SeqCst) {
+//         play_waveform(device, &mut waveform)?;
+//         await_play_done(&waveform);
+//
+//         sleep_cancelable(Duration::from_millis(TIMER_PLAY_PERIOD_MS as u64), || {
+//             !running.load(Ordering::Relaxed)
+//         });
+//     }
+//
+//     unprepare_waveform(device, &mut waveform);
+//     close_device(device);
+//
+//     Ok(())
+// }
 
 #[cfg(test)]
 mod tests {
@@ -216,7 +250,7 @@ mod tests {
 
         prepare_waveform(device, &mut waveform).unwrap();
         play_waveform(device, &mut waveform).unwrap();
-        await_play_done(&mut waveform);
+        await_play_done(&waveform);
         unprepare_waveform(device, &mut waveform);
         close_device(device);
     }
