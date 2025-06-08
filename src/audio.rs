@@ -18,13 +18,13 @@ const PING_INTERVAL_SEC: u64 = 5;
 const PING_INTERVAL_SEC: u64 = 2;
 
 const SAMPLES_PER_SEC: u32 = 44100;
-pub const EVT_START_PLAYING: u8 = 100;
-pub const EVT_END_PLAYING: u8 = 101;
+pub const EVT_BUSY: u8 = 100;
+pub const EVT_READY: u8 = 101;
 
 #[cfg(not(feature = "debug"))]
-/// Generates 100 millis of silence.
+/// Generates 10 millis of silence.
 fn generate_waveform() -> Vec<u8> {
-    vec![0; SAMPLES_PER_SEC as usize / 10]
+    vec![0; SAMPLES_PER_SEC as usize / 100]
 }
 
 #[cfg(feature = "debug")]
@@ -146,19 +146,23 @@ fn check_result(result: u32, message: &str) -> Result<(), String> {
     }
 }
 
-pub fn keep_audio_awake(running: Arc<AtomicBool>, sender: Sender<u8>) -> Result<(), String> {
+pub fn keep_audio_awake(running: Arc<AtomicBool>, event_sink: Sender<u8>) -> Result<(), String> {
     let device = open_device()?;
     let mut buffer = generate_waveform();
     let mut waveform = create_waveform(&mut buffer);
     prepare_waveform(device, &mut waveform)?;
 
     while running.load(Ordering::SeqCst) {
-        sender.send(EVT_START_PLAYING).unwrap();
+        event_sink.send(EVT_BUSY).unwrap_or_else(|e| {
+            eprintln!("{}", e);
+        });
         
         play_waveform(device, &mut waveform)?;
         await_play_done(&mut waveform);
         
-        sender.send(EVT_END_PLAYING).unwrap();
+        event_sink.send(EVT_READY).unwrap_or_else(|e| {
+            eprintln!("{}", e);
+        });
 
         sleep_cancelable(Duration::from_secs(PING_INTERVAL_SEC), || {
             !running.load(Ordering::Relaxed)

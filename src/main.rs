@@ -1,5 +1,5 @@
 #![cfg_attr(
-    all(feature = "gui", not(feature = "debug")),
+    all(feature = "gui", not(feature = "gui_console")),
     windows_subsystem = "windows"
 )] /* hides console window */
 

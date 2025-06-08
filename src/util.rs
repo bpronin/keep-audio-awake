@@ -1,10 +1,10 @@
 use std::time::Duration;
 use std::{ptr, thread};
 use windows::core::PCSTR;
-use windows::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS};
+use windows::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS, HWND};
 use windows::Win32::Storage::FileSystem::SYNCHRONIZE;
 use windows::Win32::System::Threading::CreateMutexExA;
-
+use windows::Win32::UI::WindowsAndMessaging::{KillTimer, SetTimer};
 pub fn check_app_running() -> Result<(), String> {
     let mutex_id = b"Global\\8e22f9ab-0f7f-4f01-8dc2-6047b74a2a99\0";
 
@@ -56,3 +56,39 @@ where
         thread::sleep(remainder);
     }
 }
+
+// struct TimerHolder {
+//     hwnd: HWND,
+//     timer_id: usize,
+// }
+// 
+// impl TimerHolder {
+//     pub fn start(&self) {
+//         invoke_later(self.hwnd, self.timer_id, Duration::from_secs(1), Self::on_timer)    
+//     }
+//     
+//     fn on_timer() {
+//         
+//     }
+// }
+// 
+// pub fn invoke_later(hwnd: HWND, timer_id: usize, delay: Duration, f: fn()) {
+//     extern "system" fn timer_proc(hwnd: HWND, msg: u32, timer_id: usize, time: u32) {
+//         unsafe {
+//             KillTimer(Some(hwnd), timer_id).unwrap_or_else(|e| {
+//                 eprintln!("{}", e);
+//             });
+//         }
+//         f();
+//         println!("timer[{}] {} {}", timer_id, msg, time);
+//     }
+// 
+//     unsafe {
+//         SetTimer(
+//             Some(hwnd),
+//             timer_id,
+//             delay.as_millis() as u32,
+//             Some(timer_proc),
+//         );
+//     }
+// }

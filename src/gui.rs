@@ -1,6 +1,9 @@
 use crate::audio::keep_audio_awake;
-use crate::gui::res_ids::{IDI_APP_ICON, IDI_APP_ICON_GRAY, IDS_APP_IS_ALREADY_RUNNING, IDS_APP_TITLE};
+use crate::gui::res_ids::{
+    IDI_APP_ICON, IDI_APP_ICON_GRAY, IDS_APP_IS_ALREADY_RUNNING, IDS_APP_TITLE,
+};
 use crate::{audio, r_icon, rs, util};
+use audio::EVT_READY;
 use native_windows_gui::{
     message, stop_thread_dispatch, GlobalCursor, Menu, MenuItem, MessageButtons, MessageIcons,
     MessageParams, MessageWindow, NativeUi, TrayNotification,
@@ -12,7 +15,6 @@ use std::sync::mpsc::Receiver;
 use std::sync::{mpsc, Arc};
 use std::thread;
 use thread::JoinHandle;
-use audio::{EVT_END_PLAYING, EVT_START_PLAYING};
 use util::check_app_running;
 
 mod res;
@@ -27,6 +29,7 @@ pub struct App {
     service_thread: RefCell<Option<JoinHandle<Result<(), String>>>>,
     service_running: Arc<AtomicBool>,
     receiver: RefCell<Option<Receiver<u8>>>,
+    current_icon_res: RefCell<usize>,
 }
 
 impl App {
@@ -58,13 +61,38 @@ impl App {
     pub(crate) fn receive_events(&self) {
         if let Some(receiver) = self.receiver.borrow().as_ref() {
             while let Ok(event) = receiver.try_recv() {
-                match event {
-                    EVT_START_PLAYING => self.tray.set_icon(&r_icon!(IDI_APP_ICON_GRAY)),
-                    EVT_END_PLAYING => self.tray.set_icon(&r_icon!(IDI_APP_ICON)),
-                    _ => panic!("Unknown event")
+                println!("Received event: {:?}", event);
+                if event == EVT_READY {
+                    self.toggle_app_icon()
                 }
+                // match event {
+                //     EVT_BUSY => self.tray.set_icon(&r_icon!(IDI_APP_ICON_GRAY)),
+                //     EVT_READY => self.tray.set_icon(&r_icon!(IDI_APP_ICON)),
+                //     _ => panic!("Unknown event")
+                // }
             }
         }
+    }
+
+    fn toggle_app_icon(&self) {
+        // let hwnd = HWND(self.window.handle.hwnd().unwrap() as _);
+        // invoke_later(
+        //     hwnd,
+        //     100,
+        //     Duration::from_secs(1),self.on_timer(),
+        // )
+
+        let icon_res = if self.current_icon_res.borrow().eq(&IDI_APP_ICON) {
+            IDI_APP_ICON_GRAY
+        } else {
+            IDI_APP_ICON
+        };
+        self.tray.set_icon(&r_icon!(icon_res));
+        self.current_icon_res.replace(icon_res);
+    }
+
+    fn on_timer(&self) {
+        println!("toggle_app_icon");
     }
 }
 
