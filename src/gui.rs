@@ -1,8 +1,6 @@
 use crate::audio::AudioControl;
-use crate::gui::res_ids::{
-    IDS_APP_IS_ALREADY_RUNNING, IDS_APP_TITLE,
-};
-use crate::gui::tray_icon::start_blink_icon;
+use crate::gui::res_ids::{IDS_APP_IS_ALREADY_RUNNING, IDS_APP_TITLE};
+use crate::gui::tray_icon::{start_blink_icon};
 use crate::util::hwnd;
 use crate::{rs, util};
 use native_windows_gui::{
