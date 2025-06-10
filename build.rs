@@ -9,7 +9,7 @@ const RESOURCES_IDS_FILE: &str = "src/gui/res_ids.rs";
 fn main() {
     embed_resource::compile(RESOURCES_FILE, embed_resource::NONE)
         .manifest_required()
-        .unwrap();
+        .expect("Failed to embed resource manifest");
 
     generate_resource_consts();
 }

@@ -1,6 +1,7 @@
-use crate::util::{from_utf16, sleep_cancelable};
+use crate::util::{from_utf16, sleep_cancelable, start_timer, stop_timer};
 use std::ptr::null_mut;
 use std::time::Duration;
+use log::warn;
 use windows::core::PSTR;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::Media::Audio::{
@@ -9,7 +10,6 @@ use windows::Win32::Media::Audio::{
     WHDR_DONE,
 };
 use windows::Win32::Media::MMSYSERR_NOERROR;
-use windows::Win32::UI::WindowsAndMessaging::{KillTimer, SetTimer};
 
 pub const TIMER_AUDIO: usize = 100;
 #[cfg(not(feature = "debug"))]
@@ -34,14 +34,7 @@ impl AudioControl {
         self.buffer = generate_waveform();
         self.waveform = create_waveform(&mut self.buffer);
         prepare_waveform(self.device, &mut self.waveform)?;
-
-        unsafe {
-            if SetTimer(self.window, TIMER_AUDIO, TIMER_PERIOD_MS, None) == 0 {
-                Err("Failed to set timer")?
-            }
-        }
-
-        Ok(())
+        start_timer(self.window, TIMER_AUDIO, TIMER_PERIOD_MS)
     }
 
     pub fn play(&mut self) -> Result<(), String> {
@@ -52,12 +45,7 @@ impl AudioControl {
     }
 
     pub fn stop(&mut self) {
-        unsafe {
-            KillTimer(self.window, TIMER_AUDIO).unwrap_or_else(|e| {
-                eprintln!("Failed to kill timer. {}", e);
-            });
-        }
-
+        stop_timer(self.window, TIMER_AUDIO);
         unprepare_waveform(self.device, &mut self.waveform);
         close_device(self.device);
     }
@@ -136,7 +124,7 @@ fn open_device() -> Result<HWAVEOUT, String> {
 
 fn close_device(device: HWAVEOUT) {
     win_api_call!(waveOutClose(device), "Error closing audio device").unwrap_or_else(|e| {
-        eprintln!("{}", e);
+        warn!("{}", e);
     });
 }
 
@@ -153,7 +141,7 @@ fn unprepare_waveform(device: HWAVEOUT, waveform: &mut WAVEHDR) {
         "Error unpreparing waveform"
     )
     .unwrap_or_else(|e| {
-        eprintln!("{}", e);
+        warn!("{}", e);
     });
 }
 

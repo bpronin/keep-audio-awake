@@ -1,10 +1,12 @@
-use native_windows_gui::ControlHandle;
+use log::warn;
+use native_windows_gui::{ControlHandle};
 use std::time::Duration;
 use std::{ptr, thread};
-use windows::core::PCSTR;
+use windows::core::{HRESULT, PCSTR};
 use windows::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS, HWND};
 use windows::Win32::Storage::FileSystem::SYNCHRONIZE;
 use windows::Win32::System::Threading::CreateMutexExA;
+use windows::Win32::UI::WindowsAndMessaging::{KillTimer, SetTimer};
 
 pub fn hwnd(handle: ControlHandle) -> Option<HWND> {
     Some(HWND(handle.hwnd().unwrap() as _))
@@ -59,5 +61,24 @@ where
 
     if !should_cancel() && remainder > Duration::ZERO {
         thread::sleep(remainder);
+    }
+}
+
+pub fn start_timer(hwnd: Option<HWND>, timer_id: usize, period: u32) -> Result<(), String> {
+    unsafe {
+        if SetTimer(hwnd, timer_id, period, None) == 0 {
+            Err(format!("Failed to set timer ID:{}", timer_id))?
+        }
+    };
+    Ok(())
+}
+
+pub fn stop_timer(hwnd: Option<HWND>, timer_id: usize) {
+    unsafe {
+        KillTimer(hwnd, timer_id).unwrap_or_else(|e| {
+            if e.code() != HRESULT(0) {
+                warn!("Failed to stop timer ID:{}. {:?}", timer_id, e);
+            }
+        })
     }
 }

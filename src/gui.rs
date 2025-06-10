@@ -1,8 +1,9 @@
 use crate::audio::AudioControl;
 use crate::gui::res_ids::{IDS_APP_IS_ALREADY_RUNNING, IDS_APP_TITLE};
-use crate::gui::tray_icon::{start_blink_icon};
+use crate::gui::tray_icon::start_blink_icon;
 use crate::util::hwnd;
 use crate::{rs, util};
+use log::{debug, trace};
 use native_windows_gui::{
     dispatch_thread_events, message, stop_thread_dispatch, GlobalCursor, Menu, MenuItem, MessageButtons,
     MessageIcons, MessageParams, MessageWindow, NativeUi, TrayNotification,
@@ -27,6 +28,8 @@ pub struct App {
 
 impl App {
     fn on_app_exit(&self) {
+        debug!("Exiting application");
+
         stop_blink_icon(&self.window, &self.tray);
         self.audio.borrow_mut().stop();
         stop_thread_dispatch();
@@ -34,6 +37,9 @@ impl App {
 
     fn on_timer(&self) {
         start_blink_icon(&self.window, &self.tray);
+
+        trace!("Playing...");
+
         self.audio
             .borrow_mut()
             .play()
@@ -50,6 +56,9 @@ impl App {
             .borrow_mut()
             .start(hwnd(self.window.handle))
             .expect("Failed to start audio controller");
+
+        debug!("Application started");
+
         dispatch_thread_events();
     }
 }
@@ -62,7 +71,7 @@ pub(crate) fn run_main() -> Result<(), String> {
         e
     })?;
 
-    /* do not remove `let _ui`! */
+    /* do not remove `let ui`! */
     let ui = App::build_ui(App::default()).expect("Failed to build UI");
     ui.run();
 
