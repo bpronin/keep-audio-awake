@@ -44,8 +44,6 @@ impl AudioControl {
             warn!("{}", e);
         
             reset_waveform(self.device)?;
-        } else {
-            await_play_done(&self.waveform);
         }
 
         Ok(())
