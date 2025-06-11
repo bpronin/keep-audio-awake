@@ -1,13 +1,13 @@
 use crate::util::{from_utf16, sleep_cancelable, start_timer, stop_timer};
+use log::{debug, trace, warn};
 use std::ptr::null_mut;
 use std::time::Duration;
-use log::warn;
 use windows::core::PSTR;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::Media::Audio::{
-    waveOutClose, waveOutGetErrorTextW, waveOutOpen, waveOutPrepareHeader, waveOutUnprepareHeader, waveOutWrite, CALLBACK_NULL,
-    HWAVEOUT, WAVEFORMATEX, WAVEHDR, WAVE_FORMAT_PCM, WAVE_MAPPER,
-    WHDR_DONE,
+    waveOutClose, waveOutGetErrorTextW, waveOutOpen, waveOutPrepareHeader, waveOutReset, waveOutUnprepareHeader, waveOutWrite,
+    CALLBACK_NULL, HWAVEOUT, WAVEFORMATEX, WAVEHDR, WAVE_FORMAT_PCM,
+    WAVE_MAPPER, WHDR_DONE,
 };
 use windows::Win32::Media::MMSYSERR_NOERROR;
 
@@ -38,8 +38,15 @@ impl AudioControl {
     }
 
     pub fn play(&mut self) -> Result<(), String> {
-        play_waveform(self.device, &mut self.waveform)?;
-        await_play_done(&self.waveform);
+        trace!("Playing waveform...");
+        
+        if let Err(e) = play_waveform(self.device, &mut self.waveform) {
+            warn!("{}", e);
+        
+            reset_waveform(self.device)?;
+        } else {
+            await_play_done(&self.waveform);
+        }
 
         Ok(())
     }
@@ -52,7 +59,7 @@ impl AudioControl {
 }
 
 #[cfg(not(feature = "debug"))]
-/// Generates 10 millis of silence.
+/// Generates 10 milliseconds of silence.
 fn generate_waveform() -> Vec<u8> {
     vec![0; SAMPLES_PER_SEC as usize / 100]
 }
@@ -152,11 +159,19 @@ fn play_waveform(device: HWAVEOUT, waveform: &mut WAVEHDR) -> Result<(), String>
     )
 }
 
+fn reset_waveform(device: HWAVEOUT) -> Result<(), String> {
+    win_api_call!(waveOutReset(device), "Error resetting waveform")
+}
+
 fn await_play_done(waveform: &WAVEHDR) {
-    /* wait for flag no more than 1 second.*/
-    sleep_cancelable(Duration::from_secs(1), || {
+    /* wait for the flag no more than 5 seconds.*/
+    if sleep_cancelable(Duration::from_secs(5), || {
         (waveform.dwFlags & WHDR_DONE) != 0
-    });
+    }) {
+        trace!("Waveform is done");
+    } else {
+        warn!("Waveform await timeout expired");
+    };
 }
 
 fn check_result(result: u32, message: &str) -> Result<(), String> {
@@ -221,7 +236,7 @@ mod tests {
     fn test_create_audio() {
         let mut buffer = generate_waveform();
         let waveform = create_waveform(&mut buffer);
-        assert_ne!(0, waveform.dwBufferLength as u32);
+        assert_ne!(0u32, waveform.dwBufferLength as u32);
     }
 
     #[test]

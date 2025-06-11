@@ -37,9 +37,6 @@ impl App {
 
     fn on_timer(&self) {
         start_blink_icon(&self.window, &self.tray);
-
-        trace!("Playing...");
-
         self.audio
             .borrow_mut()
             .play()

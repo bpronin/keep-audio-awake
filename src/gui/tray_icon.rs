@@ -11,7 +11,7 @@ const TIMER_ICON_BLINK_PERIOD_MS: u32 = 500;
 pub fn start_blink_icon(window: &MessageWindow, tray: &TrayNotification) {
     set_busy_icon(tray, true);
 
-    trace!("Starting blink icon timer");
+    trace!("Starting icon blink");
     
     if start_timer(
         hwnd(window.handle),
@@ -25,6 +25,8 @@ pub fn start_blink_icon(window: &MessageWindow, tray: &TrayNotification) {
 }
 
 pub fn stop_blink_icon(window: &MessageWindow, tray: &TrayNotification) {
+    trace!("Stopping icon blink ");
+    
     set_busy_icon(tray, false);
     stop_timer(hwnd(window.handle), TIMER_ICON_BLINK);
 }

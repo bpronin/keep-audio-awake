@@ -44,7 +44,7 @@ pub fn from_utf16(s: &[u16]) -> String {
         .unwrap_or("Decoding error".to_string())
 }
 
-pub fn sleep_cancelable<F>(duration: Duration, should_cancel: F)
+pub fn sleep_cancelable<F>(duration: Duration, should_cancel: F) -> bool
 where
     F: Fn() -> bool,
 {
@@ -54,7 +54,7 @@ where
 
     for _ in 0..steps {
         if should_cancel() {
-            return;
+            return true;
         }
         thread::sleep(short);
     }
@@ -62,6 +62,7 @@ where
     if !should_cancel() && remainder > Duration::ZERO {
         thread::sleep(remainder);
     }
+    false
 }
 
 pub fn start_timer(hwnd: Option<HWND>, timer_id: usize, period: u32) -> Result<(), String> {
