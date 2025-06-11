@@ -1,5 +1,5 @@
 use crate::util::{from_utf16, sleep_cancelable, start_timer, stop_timer};
-use log::{debug, trace, warn};
+use log::{trace, warn};
 use std::ptr::null_mut;
 use std::time::Duration;
 use windows::core::PSTR;

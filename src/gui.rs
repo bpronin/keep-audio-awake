@@ -3,7 +3,7 @@ use crate::gui::res_ids::{IDS_APP_IS_ALREADY_RUNNING, IDS_APP_TITLE};
 use crate::gui::tray_icon::start_blink_icon;
 use crate::util::hwnd;
 use crate::{rs, util};
-use log::{debug, trace};
+use log::{debug};
 use native_windows_gui::{
     dispatch_thread_events, message, stop_thread_dispatch, GlobalCursor, Menu, MenuItem, MessageButtons,
     MessageIcons, MessageParams, MessageWindow, NativeUi, TrayNotification,
