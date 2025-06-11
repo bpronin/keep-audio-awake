@@ -1,5 +1,5 @@
 use crate::util::{from_utf16, sleep_cancelable, start_timer, stop_timer};
-use log::{trace, warn};
+use log::{debug, trace, warn};
 use std::ptr::null_mut;
 use std::time::Duration;
 use windows::core::PSTR;
@@ -42,6 +42,7 @@ impl AudioControl {
         
         if let Err(e) = play_waveform(self.device, &mut self.waveform) {
             warn!("{}", e);
+            debug!("Restarting...");
         
             reset_waveform(self.device)?;
         }

@@ -9,11 +9,11 @@ mod util;
 fn setup_logger() {
     use flexi_logger::{Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming};
 
-    Logger::try_with_env_or_str("warn")
+    Logger::try_with_env_or_str("вуигп")
         .expect("Failed to create logger")
         .log_to_file(FileSpec::default().directory(".log"))
         .set_palette("1;3;4;2;7".into())
-        .format_for_stdout(colored_detailed_format)
+        .format(colored_detailed_format)
         .rotate(
             Criterion::Size(10_000_000),
             Naming::Timestamps,
